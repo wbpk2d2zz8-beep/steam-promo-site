@@ -8,6 +8,7 @@ const PORT = process.env.PORT || 3000;
 const DESCONTO_MINIMO_PADRAO = parseInt(process.env.DESCONTO_MINIMO || "50", 10);
 const NOTA_MINIMA_PADRAO = parseInt(process.env.NOTA_MINIMA || "70", 10);
 const ITAD_API_KEY = process.env.ITAD_API_KEY || "";
+const HORAS_ENTRE_ATUALIZACOES = parseFloat(process.env.HORAS_ENTRE_ATUALIZACOES || "4");
 
 const STEAM_SEARCH_URL = "https://store.steampowered.com/search/results/";
 const STEAM_APPDETAILS_URL = "https://store.steampowered.com/api/appdetails";
@@ -232,31 +233,58 @@ async function buscarPromocoes({
   return final;
 }
 
+// ── Cache — a busca roda sozinha em segundo plano, o site nunca busca "na hora" ──
+// Isso evita martelar a API da Steam a cada visita (e o bloqueio que isso causava).
+let cache = {
+  jogos: [],
+  atualizadoEm: null,
+  atualizando: false,
+  erro: null,
+};
+
+async function atualizarCache() {
+  if (cache.atualizando) return; // evita duas atualizações simultâneas
+  cache.atualizando = true;
+  console.log("[CACHE] Iniciando atualização das promoções...");
+  try {
+    const jogos = await buscarPromocoes({
+      descontoMinimo: DESCONTO_MINIMO_PADRAO,
+      notaMinima: NOTA_MINIMA_PADRAO,
+      excluirIndie: true,
+    });
+    cache.jogos = jogos;
+    cache.atualizadoEm = new Date().toISOString();
+    cache.erro = null;
+    console.log(`[CACHE] Atualizado com sucesso: ${jogos.length} jogos encontrados.`);
+  } catch (erro) {
+    cache.erro = String(erro);
+    console.error("[CACHE] Falha ao atualizar:", erro);
+  } finally {
+    cache.atualizando = false;
+  }
+}
+
 // ── Servidor Express ───────────────────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, "public")));
 
-app.get("/api/promocoes", async (req, res) => {
-  try {
-    const desconto = parseInt(req.query.desconto, 10) || DESCONTO_MINIMO_PADRAO;
-    const nota = parseInt(req.query.nota, 10) || NOTA_MINIMA_PADRAO;
-    const excluirIndie = req.query.excluirIndie !== "false";
+app.get("/api/promocoes", (req, res) => {
+  res.json({
+    ok: true,
+    total: cache.jogos.length,
+    itadAtivo: Boolean(ITAD_API_KEY),
+    atualizadoEm: cache.atualizadoEm,
+    erro: cache.erro,
+    jogos: cache.jogos,
+  });
+});
 
-    const jogos = await buscarPromocoes({
-      descontoMinimo: desconto,
-      notaMinima: nota,
-      excluirIndie,
-    });
-
-    res.json({
-      ok: true,
-      total: jogos.length,
-      itadAtivo: Boolean(ITAD_API_KEY),
-      jogos,
-    });
-  } catch (erro) {
-    console.error("[ERRO] /api/promocoes:", erro);
-    res.status(500).json({ ok: false, erro: String(erro) });
+// Endpoint opcional para forçar atualização manualmente (ex: você mesmo, se quiser)
+app.post("/api/atualizar", async (req, res) => {
+  if (cache.atualizando) {
+    return res.json({ ok: true, mensagem: "Já tem uma atualização em andamento." });
   }
+  atualizarCache(); // não espera terminar, só dispara
+  res.json({ ok: true, mensagem: "Atualização iniciada em segundo plano." });
 });
 
 // ── Diagnóstico (mesmo princípio do !debug do bot Discord) ───────────────────
@@ -324,4 +352,11 @@ app.get("/api/debug", async (req, res) => {
 app.listen(PORT, () => {
   console.log(`✅ Servidor rodando em http://localhost:${PORT}`);
   console.log(`   ITAD configurado: ${ITAD_API_KEY ? "sim" : "não"}`);
+  console.log(`   Atualizando promoções a cada ${HORAS_ENTRE_ATUALIZACOES}h`);
+
+  // Primeira busca ao ligar o servidor (não bloqueia o listen, roda em paralelo)
+  atualizarCache();
+
+  // Atualizações periódicas em segundo plano
+  setInterval(atualizarCache, HORAS_ENTRE_ATUALIZACOES * 60 * 60 * 1000);
 });
