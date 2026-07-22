@@ -23,40 +23,18 @@
 
 <main class="container">
 
-  <section class="painel-filtros" aria-label="Filtros de busca">
-    <div class="filtro-campo">
-      <label for="input-desconto">Desconto mínimo</label>
-      <div class="filtro-slider-linha">
-        <input type="range" id="input-desconto" min="1" max="90" value="50" step="5" />
-        <output id="valor-desconto" class="filtro-valor">50%</output>
-      </div>
+  <section class="painel-info" aria-label="Informações da vitrine">
+    <div class="info-texto">
+      <p class="info-linha">
+        Promoções com <strong>-50% ou mais</strong>, jogos com <strong>70%+ de avaliações positivas</strong>, sem indies.
+      </p>
+      <p id="info-atualizacao" class="info-atualizacao">Carregando...</p>
     </div>
-
-    <div class="filtro-campo">
-      <label for="input-nota">Nota mínima de avaliação</label>
-      <div class="filtro-slider-linha">
-        <input type="range" id="input-nota" min="0" max="97" value="70" step="1" />
-        <output id="valor-nota" class="filtro-valor">70%</output>
-      </div>
-    </div>
-
-    <div class="filtro-campo filtro-toggle">
-      <label class="toggle-label">
-        <input type="checkbox" id="input-indie" checked />
-        <span class="toggle-visual"></span>
-        Excluir jogos indie
-      </label>
-    </div>
-
-    <button id="btn-buscar" class="botao-buscar">
-      <span class="botao-buscar-texto">Buscar promoções</span>
-      <span class="botao-buscar-icone">→</span>
-    </button>
   </section>
 
   <section id="area-status" class="area-status" hidden>
     <div class="spinner" aria-hidden="true"></div>
-    <p id="status-texto">Vasculhando a loja...</p>
+    <p id="status-texto">Carregando vitrine...</p>
   </section>
 
   <section id="area-resultado" class="area-resultado" hidden>
@@ -69,8 +47,8 @@
 
   <section id="area-vazio" class="area-vazio" hidden>
     <p class="vazio-emoji">◇</p>
-    <p class="vazio-titulo">Nenhum jogo encontrado com esses critérios</p>
-    <p class="vazio-sub">Tenta afrouxar o desconto mínimo ou a nota de avaliação.</p>
+    <p class="vazio-titulo">Nenhuma promoção na vitrine agora</p>
+    <p class="vazio-sub">A próxima atualização automática deve trazer novidades. Volta mais tarde!</p>
   </section>
 
   <section id="area-erro" class="area-erro" hidden>
@@ -81,7 +59,7 @@
 </main>
 
 <footer class="rodape">
-  <p>Dados via Steam Store API<span id="rodape-itad"></span> · Preços em BRL · Atualiza a cada busca</p>
+  <p>Dados via Steam Store API<span id="rodape-itad"></span> · Preços em BRL · Atualiza automaticamente algumas vezes por dia</p>
 </footer>
 
 <script src="/app.js"></script>

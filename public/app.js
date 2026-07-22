@@ -1,13 +1,5 @@
 // ── Elementos ──────────────────────────────────────────────────────────────
-const inputDesconto = document.getElementById("input-desconto");
-const valorDesconto = document.getElementById("valor-desconto");
-const inputNota = document.getElementById("input-nota");
-const valorNota = document.getElementById("valor-nota");
-const inputIndie = document.getElementById("input-indie");
-const btnBuscar = document.getElementById("btn-buscar");
-
 const areaStatus = document.getElementById("area-status");
-const statusTexto = document.getElementById("status-texto");
 const areaResultado = document.getElementById("area-resultado");
 const resultadoTitulo = document.getElementById("resultado-titulo");
 const resultadoSub = document.getElementById("resultado-sub");
@@ -16,14 +8,7 @@ const areaVazio = document.getElementById("area-vazio");
 const areaErro = document.getElementById("area-erro");
 const erroDetalhe = document.getElementById("erro-detalhe");
 const rodapeItad = document.getElementById("rodape-itad");
-
-// ── Sliders refletindo valor ao vivo ────────────────────────────────────────
-inputDesconto.addEventListener("input", () => {
-  valorDesconto.textContent = `${inputDesconto.value}%`;
-});
-inputNota.addEventListener("input", () => {
-  valorNota.textContent = `${inputNota.value}%`;
-});
+const infoAtualizacao = document.getElementById("info-atualizacao");
 
 // ── Formatação ───────────────────────────────────────────────────────────────
 function formatarReal(valor) {
@@ -40,28 +25,25 @@ function formatarData(isoString) {
   }
 }
 
+function formatarDataHora(isoString) {
+  if (!isoString) return null;
+  try {
+    const dt = new Date(isoString);
+    return dt.toLocaleString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return null;
+  }
+}
+
 function escaparHtml(texto) {
   const div = document.createElement("div");
   div.textContent = texto;
   return div.innerHTML;
-}
-
-// ── Frases de status rotativas (dá a sensação de progresso real) ──────────
-const FRASES_STATUS = [
-  "Vasculhando a loja da Steam...",
-  "Filtrando jogos indie...",
-  "Conferindo notas de avaliação...",
-  "Comparando com o menor preço histórico...",
-  "Organizando os melhores achados...",
-];
-
-function iniciarRotacaoStatus() {
-  let i = 0;
-  statusTexto.textContent = FRASES_STATUS[0];
-  return setInterval(() => {
-    i = (i + 1) % FRASES_STATUS.length;
-    statusTexto.textContent = FRASES_STATUS[i];
-  }, 3200);
 }
 
 // ── Criação de card ──────────────────────────────────────────────────────────
@@ -122,26 +104,17 @@ function criarCardJogo(jogo) {
   return a;
 }
 
-// ── Fluxo principal de busca ───────────────────────────────────────────────
-async function buscarPromocoes() {
-  const desconto = inputDesconto.value;
-  const nota = inputNota.value;
-  const excluirIndie = inputIndie.checked;
-
-  btnBuscar.disabled = true;
+// ── Carrega o cache já pronto (não dispara busca nova na Steam) ────────────
+async function carregarVitrine() {
   areaResultado.hidden = true;
   areaVazio.hidden = true;
   areaErro.hidden = true;
   areaStatus.hidden = false;
 
-  const intervaloStatus = iniciarRotacaoStatus();
-
   try {
-    const params = new URLSearchParams({ desconto, nota, excluirIndie: String(excluirIndie) });
-    const resp = await fetch(`/api/promocoes?${params}`);
+    const resp = await fetch("/api/promocoes");
     const data = await resp.json();
 
-    clearInterval(intervaloStatus);
     areaStatus.hidden = true;
 
     if (!data.ok) {
@@ -150,7 +123,16 @@ async function buscarPromocoes() {
 
     rodapeItad.textContent = data.itadAtivo
       ? " + IsThereAnyDeal (preço histórico)"
-      : " (preço histórico desativado — configure ITAD_API_KEY para ativar)";
+      : "";
+
+    const dataHoraTxt = formatarDataHora(data.atualizadoEm);
+    if (dataHoraTxt) {
+      infoAtualizacao.textContent = `Última atualização: ${dataHoraTxt}`;
+    } else if (data.erro) {
+      infoAtualizacao.textContent = "A primeira busca ainda não terminou ou falhou — tenta recarregar em instantes.";
+    } else {
+      infoAtualizacao.textContent = "Buscando as promoções pela primeira vez, isso pode levar alguns minutos...";
+    }
 
     if (!data.jogos.length) {
       areaVazio.hidden = false;
@@ -158,24 +140,24 @@ async function buscarPromocoes() {
     }
 
     resultadoTitulo.textContent = `${data.total} ${data.total === 1 ? "jogo encontrado" : "jogos encontrados"}`;
-    resultadoSub.textContent = `Ordenados por nota de avaliação, depois por desconto · -${desconto}% ou mais · nota ≥ ${nota}%`;
+    resultadoSub.textContent = "Ordenados por nota de avaliação, depois por desconto";
 
     gradeJogos.innerHTML = "";
     data.jogos.forEach((jogo) => gradeJogos.appendChild(criarCardJogo(jogo)));
 
     areaResultado.hidden = false;
   } catch (erro) {
-    clearInterval(intervaloStatus);
     areaStatus.hidden = true;
     erroDetalhe.textContent = erro.message || String(erro);
     areaErro.hidden = false;
-  } finally {
-    btnBuscar.disabled = false;
   }
 }
 
-btnBuscar.addEventListener("click", buscarPromocoes);
+carregarVitrine();
 
-// Busca automaticamente ao abrir a página, usando os valores padrão dos sliders
-buscarPromocoes();
-
+// Se a busca inicial do servidor ainda não tiver terminado, tenta de novo em alguns segundos
+setTimeout(() => {
+  if (!infoAtualizacao.textContent.startsWith("Última atualização")) {
+    carregarVitrine();
+  }
+}, 15000);
