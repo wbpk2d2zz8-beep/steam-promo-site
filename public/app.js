@@ -1,4 +1,10 @@
 // ── Elementos ──────────────────────────────────────────────────────────────
+const inputDesconto = document.getElementById("input-desconto");
+const valorDesconto = document.getElementById("valor-desconto");
+const inputNota = document.getElementById("input-nota");
+const valorNota = document.getElementById("valor-nota");
+const inputIndie = document.getElementById("input-indie");
+
 const areaStatus = document.getElementById("area-status");
 const areaResultado = document.getElementById("area-resultado");
 const resultadoTitulo = document.getElementById("resultado-titulo");
@@ -9,6 +15,20 @@ const areaErro = document.getElementById("area-erro");
 const erroDetalhe = document.getElementById("erro-detalhe");
 const rodapeItad = document.getElementById("rodape-itad");
 const infoAtualizacao = document.getElementById("info-atualizacao");
+
+// ── Sliders refletindo valor ao vivo ────────────────────────────────────────
+inputDesconto.addEventListener("input", () => {
+  valorDesconto.textContent = `${inputDesconto.value}%`;
+});
+inputNota.addEventListener("input", () => {
+  valorNota.textContent = `${inputNota.value}%`;
+});
+
+// Refiltra automaticamente quando o usuário solta o controle (sem precisar de botão)
+// "change" dispara ao soltar o slider/marcar o checkbox — não a cada pixel arrastado
+inputDesconto.addEventListener("change", carregarVitrine);
+inputNota.addEventListener("change", carregarVitrine);
+inputIndie.addEventListener("change", carregarVitrine);
 
 // ── Formatação ───────────────────────────────────────────────────────────────
 function formatarReal(valor) {
@@ -104,15 +124,21 @@ function criarCardJogo(jogo) {
   return a;
 }
 
-// ── Carrega o cache já pronto (não dispara busca nova na Steam) ────────────
+// ── Carrega e filtra o cache já pronto (não dispara busca nova na Steam) ────
+// Os parâmetros vão na URL, mas o servidor só filtra em memória — instantâneo.
 async function carregarVitrine() {
+  const desconto = inputDesconto.value;
+  const nota = inputNota.value;
+  const excluirIndie = inputIndie.checked;
+
   areaResultado.hidden = true;
   areaVazio.hidden = true;
   areaErro.hidden = true;
   areaStatus.hidden = false;
 
   try {
-    const resp = await fetch("/api/promocoes");
+    const params = new URLSearchParams({ desconto, nota, excluirIndie: String(excluirIndie) });
+    const resp = await fetch(`/api/promocoes?${params}`);
     const data = await resp.json();
 
     areaStatus.hidden = true;
@@ -121,13 +147,11 @@ async function carregarVitrine() {
       throw new Error(data.erro || "Erro desconhecido");
     }
 
-    rodapeItad.textContent = data.itadAtivo
-      ? " + IsThereAnyDeal (preço histórico)"
-      : "";
+    rodapeItad.textContent = data.itadAtivo ? " + IsThereAnyDeal (preço histórico)" : "";
 
     const dataHoraTxt = formatarDataHora(data.atualizadoEm);
     if (dataHoraTxt) {
-      infoAtualizacao.textContent = `Última atualização: ${dataHoraTxt}`;
+      infoAtualizacao.textContent = `Vitrine atualizada em: ${dataHoraTxt} · ${data.totalNoCache} jogos em promoção no total`;
     } else if (data.erro) {
       infoAtualizacao.textContent = "A primeira busca ainda não terminou ou falhou — tenta recarregar em instantes.";
     } else {
@@ -140,7 +164,7 @@ async function carregarVitrine() {
     }
 
     resultadoTitulo.textContent = `${data.total} ${data.total === 1 ? "jogo encontrado" : "jogos encontrados"}`;
-    resultadoSub.textContent = "Ordenados por nota de avaliação, depois por desconto";
+    resultadoSub.textContent = `Ordenados por nota de avaliação, depois por desconto · -${desconto}% ou mais · nota ≥ ${nota}%`;
 
     gradeJogos.innerHTML = "";
     data.jogos.forEach((jogo) => gradeJogos.appendChild(criarCardJogo(jogo)));
@@ -157,7 +181,7 @@ carregarVitrine();
 
 // Se a busca inicial do servidor ainda não tiver terminado, tenta de novo em alguns segundos
 setTimeout(() => {
-  if (!infoAtualizacao.textContent.startsWith("Última atualização")) {
+  if (!infoAtualizacao.textContent.startsWith("Vitrine atualizada")) {
     carregarVitrine();
   }
 }, 15000);
