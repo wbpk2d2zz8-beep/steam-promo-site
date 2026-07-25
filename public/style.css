@@ -1,25 +1,31 @@
 /* ── Tokens de design ──────────────────────────────────────────────────────
-   Paleta: vitrine noturna de loja de jogos.
+   Paleta: vitrine noturna de loja de jogos, agora com ambientação LED roxa.
    --grafite:  fundo base, quase preto mas não puro (evita o "AI dark mode" genérico)
    --carvao:   superfícies de cards, um degrau acima do fundo
    --coral:    accent de "oferta" — tag de desconto, urgência
    --lima:     accent de "economia" — só aparece em números que importam
    --marfim:   texto principal
    --cinza:    texto secundário / metadados
+   --led-roxo: ambientação de fundo (bordas, glow) — nunca usado em dados/preços
 ------------------------------------------------------------------------- */
 :root {
-  --grafite: #14120f;
-  --grafite-2: #1c1915;
-  --carvao: #211d18;
-  --carvao-borda: #332d25;
+  --grafite: #0f0d12;
+  --grafite-2: #17141d;
+  --carvao: #1e1a24;
+  --carvao-borda: #362e42;
   --coral: #ff5a4e;
   --coral-escuro: #c23f36;
   --lima: #9bd94f;
   --lima-escuro: #6fa634;
   --ouro: #e8b33d;
   --marfim: #f3ede2;
-  --cinza: #a89e8d;
-  --cinza-escuro: #6b6355;
+  --cinza: #a89ab0;
+  --cinza-escuro: #6b6178;
+
+  --led-roxo: #a855f7;
+  --led-roxo-forte: #c084fc;
+  --led-magenta: #e879f9;
+  --led-ciano: #22d3ee;
 
   --fonte-display: "Archivo Black", "Archivo", sans-serif;
   --fonte-corpo: "Archivo", -apple-system, sans-serif;
@@ -34,16 +40,83 @@ body {
   margin: 0;
   background: var(--grafite);
   background-image:
-    radial-gradient(ellipse 900px 500px at 15% -10%, rgba(255, 90, 78, 0.09), transparent),
-    radial-gradient(ellipse 700px 400px at 90% 0%, rgba(155, 217, 79, 0.06), transparent);
+    radial-gradient(ellipse 900px 500px at 15% -10%, rgba(168, 85, 247, 0.12), transparent),
+    radial-gradient(ellipse 700px 400px at 90% 0%, rgba(232, 121, 249, 0.08), transparent),
+    radial-gradient(ellipse 800px 600px at 50% 110%, rgba(168, 85, 247, 0.08), transparent);
   color: var(--marfim);
   font-family: var(--fonte-corpo);
   line-height: 1.5;
   min-height: 100vh;
+  position: relative;
 }
 
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
+
+/* ── Fundo: moldura de LED roxa + números de preço flutuando ──────────────
+   Elemento inteiro é `fixed`, atrás de tudo (z-index baixo), puramente decorativo.
+------------------------------------------------------------------------- */
+.fundo-led {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.led-borda {
+  position: fixed;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--led-roxo), var(--led-magenta), var(--led-roxo), transparent);
+  filter: blur(2px);
+  opacity: 0.55;
+  animation: pulsar-led 4s ease-in-out infinite;
+}
+.led-topo, .led-baixo {
+  left: 0; right: 0; height: 3px;
+}
+.led-esquerda, .led-direita {
+  top: 0; bottom: 0; width: 3px;
+  background: linear-gradient(180deg, transparent, var(--led-roxo), var(--led-magenta), var(--led-roxo), transparent);
+}
+.led-topo { top: 0; box-shadow: 0 0 16px 2px rgba(168, 85, 247, 0.5); }
+.led-baixo { bottom: 0; box-shadow: 0 0 16px 2px rgba(168, 85, 247, 0.5); animation-delay: 1.3s; }
+.led-esquerda { left: 0; box-shadow: 0 0 16px 2px rgba(168, 85, 247, 0.5); animation-delay: 0.6s; }
+.led-direita { right: 0; box-shadow: 0 0 16px 2px rgba(168, 85, 247, 0.5); animation-delay: 2s; }
+
+@keyframes pulsar-led {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.85; }
+}
+
+.fundo-numeros {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.fundo-numero {
+  position: absolute;
+  font-family: var(--fonte-mono);
+  font-weight: 700;
+  white-space: nowrap;
+  user-select: none;
+  animation: flutuar-numero linear infinite;
+}
+.fundo-numero.cor-desconto { color: rgba(255, 90, 78, 0.16); }
+.fundo-numero.cor-preco { color: rgba(168, 85, 247, 0.14); }
+.fundo-numero.cor-economia { color: rgba(155, 217, 79, 0.13); }
+
+@keyframes flutuar-numero {
+  from { transform: translateY(8vh); }
+  to { transform: translateY(-108vh); }
+}
+
+/* Todo conteúdo real fica acima do fundo decorativo */
+.topo, .container, .rodape {
+  position: relative;
+  z-index: 2;
 }
 
 /* ── Header ────────────────────────────────────────────────────────────── */
@@ -57,22 +130,22 @@ body {
 }
 .marca {
   display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
+  align-items: center;
+  gap: 0.75rem;
 }
-.marca-icone {
-  color: var(--coral);
-  font-size: 1.1rem;
-  transform: rotate(8deg);
-  display: inline-block;
+.marca-logo {
+  width: 42px;
+  height: 42px;
+  display: block;
+  filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.55));
 }
 .marca-texto {
   font-family: var(--fonte-display);
-  font-size: clamp(1.6rem, 4vw, 2.2rem);
+  font-size: clamp(1.4rem, 3.6vw, 2rem);
   letter-spacing: -0.01em;
   color: var(--marfim);
 }
-.marca-destaque { color: var(--coral); }
+.marca-destaque { color: var(--led-roxo-forte); }
 .subtitulo {
   margin: 0.4rem 0 0;
   color: var(--cinza);

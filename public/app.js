@@ -13,6 +13,43 @@ const gradeJogos = document.getElementById("grade-jogos");
 const areaVazio = document.getElementById("area-vazio");
 const areaErro = document.getElementById("area-erro");
 const erroDetalhe = document.getElementById("erro-detalhe");
+
+// ── Fundo decorativo: números de preço/desconto flutuando lentamente ───────
+// Puramente estético — não usa nenhum dado real, só compõe o clima "vitrine".
+function gerarFundoNumeros() {
+  const container = document.getElementById("fundo-numeros");
+  if (!container) return;
+
+  const amostras = [
+    { texto: "-40%", classe: "cor-desconto" },
+    { texto: "-65%", classe: "cor-desconto" },
+    { texto: "-20%", classe: "cor-desconto" },
+    { texto: "-80%", classe: "cor-desconto" },
+    { texto: "R$ 24,99", classe: "cor-preco" },
+    { texto: "R$ 59,90", classe: "cor-preco" },
+    { texto: "R$ 12,49", classe: "cor-preco" },
+    { texto: "R$ 89,00", classe: "cor-preco" },
+    { texto: "economia R$ 35", classe: "cor-economia" },
+    { texto: "economia R$ 18", classe: "cor-economia" },
+  ];
+
+  const quantidade = window.innerWidth < 720 ? 10 : 18;
+  const frag = document.createDocumentFragment();
+
+  for (let i = 0; i < quantidade; i++) {
+    const amostra = amostras[Math.floor(Math.random() * amostras.length)];
+    const el = document.createElement("span");
+    el.className = `fundo-numero ${amostra.classe}`;
+    el.textContent = amostra.texto;
+    el.style.left = `${Math.random() * 96}%`;
+    el.style.fontSize = `${0.85 + Math.random() * 1.4}rem`;
+    el.style.animationDuration = `${22 + Math.random() * 26}s`;
+    el.style.animationDelay = `-${Math.random() * 40}s`;
+    frag.appendChild(el);
+  }
+  container.appendChild(frag);
+}
+gerarFundoNumeros();
 const rodapeItad = document.getElementById("rodape-itad");
 const infoAtualizacao = document.getElementById("info-atualizacao");
 
