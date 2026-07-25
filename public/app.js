@@ -126,15 +126,23 @@ function criarCardJogo(jogo) {
 
 // ── Carrega e filtra o cache já pronto (não dispara busca nova na Steam) ────
 // Os parâmetros vão na URL, mas o servidor só filtra em memória — instantâneo.
-async function carregarVitrine() {
+let intervaloAcompanhamento = null;
+
+let primeiraCarga = true;
+
+async function carregarVitrine(silencioso = false) {
   const desconto = inputDesconto.value;
   const nota = inputNota.value;
   const excluirIndie = inputIndie.checked;
 
-  areaResultado.hidden = true;
-  areaVazio.hidden = true;
-  areaErro.hidden = true;
-  areaStatus.hidden = false;
+  // O spinner só faz sentido na primeiríssima carga, antes de saber se existe algum dado.
+  // Trocar os sliders é filtro em memória — instantâneo, não precisa de tela de carregamento.
+  if (primeiraCarga && !silencioso) {
+    areaResultado.hidden = true;
+    areaVazio.hidden = true;
+    areaErro.hidden = true;
+    areaStatus.hidden = false;
+  }
 
   try {
     const params = new URLSearchParams({ desconto, nota, excluirIndie: String(excluirIndie) });
@@ -142,6 +150,7 @@ async function carregarVitrine() {
     const data = await resp.json();
 
     areaStatus.hidden = true;
+    primeiraCarga = false;
 
     if (!data.ok) {
       throw new Error(data.erro || "Erro desconhecido");
@@ -150,19 +159,34 @@ async function carregarVitrine() {
     rodapeItad.textContent = data.itadAtivo ? " + IsThereAnyDeal (preço histórico)" : "";
 
     const dataHoraTxt = formatarDataHora(data.atualizadoEm);
-    if (dataHoraTxt) {
-      infoAtualizacao.textContent = `Vitrine atualizada em: ${dataHoraTxt} · ${data.totalNoCache} jogos em promoção no total`;
-    } else if (data.erro) {
-      infoAtualizacao.textContent = "A primeira busca ainda não terminou ou falhou — tenta recarregar em instantes.";
+
+    if (data.atualizando) {
+      // Busca em andamento — mostra progresso e continua consultando sozinho, sem piscar a tela
+      infoAtualizacao.textContent = `Buscando promoções: ${data.progresso}/${data.progressoTotal} jogos processados até agora (isso pode levar alguns minutos)`;
+      if (!intervaloAcompanhamento) {
+        intervaloAcompanhamento = setInterval(() => carregarVitrine(true), 8000);
+      }
     } else {
-      infoAtualizacao.textContent = "Buscando as promoções pela primeira vez, isso pode levar alguns minutos...";
+      // Terminou — não precisa mais ficar consultando sozinho
+      if (intervaloAcompanhamento) {
+        clearInterval(intervaloAcompanhamento);
+        intervaloAcompanhamento = null;
+      }
+      if (dataHoraTxt) {
+        infoAtualizacao.textContent = `Vitrine atualizada em: ${dataHoraTxt} · ${data.totalNoCache} jogos em promoção no total`;
+      } else if (data.erro) {
+        infoAtualizacao.textContent = "A busca falhou — tenta recarregar em instantes.";
+      } else {
+        infoAtualizacao.textContent = "Aguardando a primeira busca começar...";
+      }
     }
 
     if (!data.jogos.length) {
-      areaVazio.hidden = false;
+      if (!silencioso || !data.atualizando) areaVazio.hidden = false;
       return;
     }
 
+    areaVazio.hidden = true;
     resultadoTitulo.textContent = `${data.total} ${data.total === 1 ? "jogo encontrado" : "jogos encontrados"}`;
     resultadoSub.textContent = `Ordenados por nota de avaliação, depois por desconto · -${desconto}% ou mais · nota ≥ ${nota}%`;
 
@@ -178,10 +202,3 @@ async function carregarVitrine() {
 }
 
 carregarVitrine();
-
-// Se a busca inicial do servidor ainda não tiver terminado, tenta de novo em alguns segundos
-setTimeout(() => {
-  if (!infoAtualizacao.textContent.startsWith("Vitrine atualizada")) {
-    carregarVitrine();
-  }
-}, 15000);
