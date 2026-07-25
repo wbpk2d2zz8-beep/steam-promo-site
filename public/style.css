@@ -148,28 +148,6 @@ body {
   to { --angulo-neon: 360deg; }
 }
 
-.fundo-numeros {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-}
-.fundo-numero {
-  position: absolute;
-  font-family: var(--fonte-mono);
-  font-weight: 700;
-  white-space: nowrap;
-  user-select: none;
-  animation: flutuar-numero linear infinite;
-}
-.fundo-numero.cor-desconto { color: rgba(255, 90, 78, 0.16); }
-.fundo-numero.cor-preco { color: rgba(168, 85, 247, 0.14); }
-.fundo-numero.cor-economia { color: rgba(155, 217, 79, 0.13); }
-
-@keyframes flutuar-numero {
-  from { transform: translateY(8vh); }
-  to { transform: translateY(-108vh); }
-}
-
 /* Todo conteúdo real fica acima do fundo decorativo */
 .topo, .container, .rodape {
   position: relative;
