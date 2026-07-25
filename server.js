@@ -8,7 +8,7 @@ const PORT = process.env.PORT || 3000;
 // O cache busca com critérios BEM ABERTOS (guarda praticamente tudo em promoção).
 // Os filtros do usuário (sliders no site) filtram esse resultado já em memória,
 // sem nunca gerar uma nova chamada à Steam — é isso que evita o bloqueio.
-const DESCONTO_MINIMO_CACHE = 10;   // guarda a partir de -10% (bem aberto)
+const DESCONTO_MINIMO_CACHE = 1;    // guarda a partir de -1% (verdadeiramente aberto — "tudo")
 const NOTA_MINIMA_CACHE = 0;        // guarda mesmo jogos com nota baixa
 const DESCONTO_MINIMO_PADRAO = parseInt(process.env.DESCONTO_MINIMO || "50", 10); // padrão exibido no site
 const NOTA_MINIMA_PADRAO = parseInt(process.env.NOTA_MINIMA || "70", 10);         // padrão exibido no site
@@ -18,9 +18,11 @@ const HORAS_ENTRE_ATUALIZACOES = parseFloat(process.env.HORAS_ENTRE_ATUALIZACOES
 // Ritmo "gotejado": processa um jogo de cada vez, com pausa entre eles — nada de rajada.
 // Padrão: 6000ms (6s) entre jogos ≈ 10 jogos/minuto, como sugerido.
 const MS_ENTRE_JOGOS = parseInt(process.env.MS_ENTRE_JOGOS || "6000", 10);
-// Limite de jogos processados por atualização, pra a busca inteira não demorar horas.
-// Com 60 jogos e 6s entre cada um, uma atualização completa leva ~6 minutos.
-const MAX_JOGOS_POR_ATUALIZACAO = parseInt(process.env.MAX_JOGOS_POR_ATUALIZACAO || "60", 10);
+// Limite de jogos processados por atualização — igual ao bot do Discord (até 300),
+// pra cobrir a mesma quantidade de promoções e não perder jogos que ficam nas páginas de trás.
+// Com 150 jogos e 6s entre cada um, uma atualização completa leva ~15 minutos.
+const MAX_JOGOS_POR_ATUALIZACAO = parseInt(process.env.MAX_JOGOS_POR_ATUALIZACAO || "150", 10);
+const MAX_PAGINAS_BUSCA = parseInt(process.env.MAX_PAGINAS_BUSCA || "6", 10);
 
 const STEAM_SEARCH_URL = "https://store.steampowered.com/search/results/";
 const STEAM_APPDETAILS_URL = "https://store.steampowered.com/api/appdetails";
@@ -238,7 +240,7 @@ async function atualizarCache() {
   console.log("[CACHE] Iniciando atualização das promoções...");
   try {
     let brutos = [];
-    for (let pagina = 0; pagina < 4; pagina++) {
+    for (let pagina = 0; pagina < MAX_PAGINAS_BUSCA; pagina++) {
       const items = await buscarPaginaBusca(pagina * 50, 50);
       if (!items.length) break;
       brutos = brutos.concat(items);
