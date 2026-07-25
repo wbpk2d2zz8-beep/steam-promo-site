@@ -217,6 +217,9 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* ── Status de carregamento ────────────────────────────────────────────── */
+.area-status[hidden] {
+  display: none;
+}
 .area-status {
   display: flex;
   flex-direction: column;
