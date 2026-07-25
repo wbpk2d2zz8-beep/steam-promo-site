@@ -195,79 +195,65 @@ async function processarJogo(item, descontoMinimo, notaMinima, excluirIndie) {
   };
 }
 
-async function processarSequencial(itens, msEntreJogos, descontoMinimo, notaMinima, excluirIndie) {
-  const resultados = [];
-  for (let i = 0; i < itens.length; i++) {
-    const r = await processarJogo(itens[i], descontoMinimo, notaMinima, excluirIndie);
-    if (r) resultados.push(r);
-    // Espera entre cada jogo (não entre chamadas dentro do mesmo jogo) — processo "gotejado"
-    if (i < itens.length - 1) {
-      await new Promise((res) => setTimeout(res, msEntreJogos));
-    }
-  }
-  return resultados;
-}
-
-async function buscarPromocoes({
-  descontoMinimo = DESCONTO_MINIMO_PADRAO,
-  notaMinima = NOTA_MINIMA_PADRAO,
-  excluirIndie = true,
-  maxPaginas = 4,
-  msEntreJogos = MS_ENTRE_JOGOS,
-} = {}) {
-  let brutos = [];
-  for (let pagina = 0; pagina < maxPaginas; pagina++) {
-    const items = await buscarPaginaBusca(pagina * 50, 50);
-    if (!items.length) break;
-    brutos = brutos.concat(items);
-    if (brutos.length >= MAX_JOGOS_POR_ATUALIZACAO) break;
-    await new Promise((r) => setTimeout(r, 1500)); // espera entre páginas de busca também
-  }
-
-  if (!brutos.length) return [];
-
-  brutos = brutos.slice(0, MAX_JOGOS_POR_ATUALIZACAO);
-
-  const processados = await processarSequencial(brutos, msEntreJogos, descontoMinimo, notaMinima, excluirIndie);
-
-  const vistos = new Set();
-  const final = [];
-  for (const jogo of processados) {
-    if (!vistos.has(jogo.appid)) {
-      vistos.add(jogo.appid);
-      final.push(jogo);
-    }
-  }
-
-  final.sort((a, b) => b.avaliacaoPercentual - a.avaliacaoPercentual || b.desconto - a.desconto);
-  return final;
-}
-
 // ── Cache — a busca roda sozinha em segundo plano, o site nunca busca "na hora" ──
 // Isso evita martelar a API da Steam a cada visita (e o bloqueio que isso causava).
 // O cache guarda TUDO (critérios abertos); os filtros do usuário atuam em cima
 // desse conjunto já pronto, na memória — nenhum filtro gera chamada nova à Steam.
+// IMPORTANTE: o cache é preenchido JOGO POR JOGO conforme processa, não só no final —
+// assim dá pra acompanhar o progresso em tempo real, mesmo com a busca levando minutos.
 let cache = {
-  jogos: [], // todos os jogos, sem filtro de indie aplicado (guardamos o campo "generos" pra filtrar depois)
-  atualizadoEm: null,
+  jogos: [],
+  atualizadoEm: null, // só vira uma data quando a atualização TERMINA por completo
   atualizando: false,
+  progresso: 0,       // quantos jogos já foram processados nesta atualização
+  progressoTotal: 0,  // quantos jogos existem pra processar nesta atualização
   erro: null,
 };
+
+async function processarSequencialComCache(itens, msEntreJogos, descontoMinimo, notaMinima, excluirIndie) {
+  const vistos = new Set(cache.jogos.map((j) => j.appid));
+  cache.progressoTotal = itens.length;
+  cache.progresso = 0;
+
+  for (let i = 0; i < itens.length; i++) {
+    const r = await processarJogo(itens[i], descontoMinimo, notaMinima, excluirIndie);
+    if (r && !vistos.has(r.appid)) {
+      vistos.add(r.appid);
+      cache.jogos.push(r);
+      cache.jogos.sort((a, b) => b.avaliacaoPercentual - a.avaliacaoPercentual || b.desconto - a.desconto);
+    }
+    cache.progresso = i + 1;
+    if (i < itens.length - 1) {
+      await new Promise((res) => setTimeout(res, msEntreJogos));
+    }
+  }
+}
 
 async function atualizarCache() {
   if (cache.atualizando) return; // evita duas atualizações simultâneas
   cache.atualizando = true;
+  cache.jogos = []; // começa do zero a cada ciclo, mas vai reaparecendo aos poucos
+  cache.progresso = 0;
+  cache.progressoTotal = 0;
   console.log("[CACHE] Iniciando atualização das promoções...");
   try {
-    const jogos = await buscarPromocoes({
-      descontoMinimo: DESCONTO_MINIMO_CACHE,
-      notaMinima: NOTA_MINIMA_CACHE,
-      excluirIndie: false, // guarda indies também — o filtro de indie roda em memória na hora da visita
-    });
-    cache.jogos = jogos;
+    let brutos = [];
+    for (let pagina = 0; pagina < 4; pagina++) {
+      const items = await buscarPaginaBusca(pagina * 50, 50);
+      if (!items.length) break;
+      brutos = brutos.concat(items);
+      if (brutos.length >= MAX_JOGOS_POR_ATUALIZACAO) break;
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+    brutos = brutos.slice(0, MAX_JOGOS_POR_ATUALIZACAO);
+
+    if (brutos.length) {
+      await processarSequencialComCache(brutos, MS_ENTRE_JOGOS, DESCONTO_MINIMO_CACHE, NOTA_MINIMA_CACHE, false);
+    }
+
     cache.atualizadoEm = new Date().toISOString();
     cache.erro = null;
-    console.log(`[CACHE] Atualizado com sucesso: ${jogos.length} jogos guardados no total.`);
+    console.log(`[CACHE] Atualizado com sucesso: ${cache.jogos.length} jogos guardados no total.`);
   } catch (erro) {
     cache.erro = String(erro);
     console.error("[CACHE] Falha ao atualizar:", erro);
@@ -301,6 +287,9 @@ app.get("/api/promocoes", (req, res) => {
     totalNoCache: cache.jogos.length,
     itadAtivo: Boolean(ITAD_API_KEY),
     atualizadoEm: cache.atualizadoEm,
+    atualizando: cache.atualizando,
+    progresso: cache.progresso,
+    progressoTotal: cache.progressoTotal,
     erro: cache.erro,
     jogos: jogosFiltrados,
   });
