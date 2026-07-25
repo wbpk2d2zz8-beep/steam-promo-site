@@ -9,18 +9,18 @@
    --led-roxo: ambientação de fundo (bordas, glow) — nunca usado em dados/preços
 ------------------------------------------------------------------------- */
 :root {
-  --grafite: #0f0d12;
-  --grafite-2: #17141d;
-  --carvao: #1e1a24;
-  --carvao-borda: #362e42;
+  --grafite: #07060a;
+  --grafite-2: #0d0b12;
+  --carvao: #18141f;
+  --carvao-borda: #322a3d;
   --coral: #ff5a4e;
   --coral-escuro: #c23f36;
   --lima: #9bd94f;
   --lima-escuro: #6fa634;
   --ouro: #e8b33d;
   --marfim: #f3ede2;
-  --cinza: #a89ab0;
-  --cinza-escuro: #6b6178;
+  --cinza: #9d92ac;
+  --cinza-escuro: #635a72;
 
   --led-roxo: #a855f7;
   --led-roxo-forte: #c084fc;
@@ -39,10 +39,6 @@ html { scroll-behavior: smooth; }
 body {
   margin: 0;
   background: var(--grafite);
-  background-image:
-    radial-gradient(ellipse 900px 500px at 15% -10%, rgba(168, 85, 247, 0.12), transparent),
-    radial-gradient(ellipse 700px 400px at 90% 0%, rgba(232, 121, 249, 0.08), transparent),
-    radial-gradient(ellipse 800px 600px at 50% 110%, rgba(168, 85, 247, 0.08), transparent);
   color: var(--marfim);
   font-family: var(--fonte-corpo);
   line-height: 1.5;
@@ -54,8 +50,9 @@ body {
   * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }
 
-/* ── Fundo: moldura de LED roxa + números de preço flutuando ──────────────
+/* ── Fundo: glows roxos flutuantes + neon percorrendo o perímetro ─────────
    Elemento inteiro é `fixed`, atrás de tudo (z-index baixo), puramente decorativo.
+   Nada aqui é estático — os glows se deslocam devagar, o neon "corre" nas bordas.
 ------------------------------------------------------------------------- */
 .fundo-led {
   position: fixed;
@@ -63,32 +60,92 @@ body {
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
+  background: var(--grafite);
 }
 
-.led-borda {
+/* Manchas de glow roxo/magenta grandes, se movendo lentamente pela tela */
+.fundo-glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.5;
+  will-change: transform;
+}
+.glow-1 {
+  width: 480px; height: 480px;
+  background: var(--led-roxo);
+  top: -10%; left: -10%;
+  animation: derivar-glow-1 22s ease-in-out infinite;
+}
+.glow-2 {
+  width: 420px; height: 420px;
+  background: var(--led-magenta);
+  bottom: -15%; right: -5%;
+  animation: derivar-glow-2 26s ease-in-out infinite;
+}
+.glow-3 {
+  width: 360px; height: 360px;
+  background: var(--led-ciano);
+  top: 40%; right: 20%;
+  opacity: 0.28;
+  animation: derivar-glow-3 30s ease-in-out infinite;
+}
+
+@keyframes derivar-glow-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(12vw, 8vh) scale(1.15); }
+  66% { transform: translate(4vw, 16vh) scale(0.9); }
+}
+@keyframes derivar-glow-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  40% { transform: translate(-10vw, -10vh) scale(1.1); }
+  70% { transform: translate(-16vw, 2vh) scale(0.95); }
+}
+@keyframes derivar-glow-3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-14vw, 10vh) scale(1.2); }
+}
+
+/* Neon correndo pelo perímetro da tela — um "traço" de luz que percorre
+   as quatro bordas em loop contínuo, como fio de LED animado. */
+.neon-perimetro {
   position: fixed;
+  inset: 12px;
   z-index: 1;
   pointer-events: none;
-  background: linear-gradient(90deg, transparent, var(--led-roxo), var(--led-magenta), var(--led-roxo), transparent);
-  filter: blur(2px);
-  opacity: 0.55;
-  animation: pulsar-led 4s ease-in-out infinite;
+  border-radius: 18px;
+  border: 2px solid transparent;
 }
-.led-topo, .led-baixo {
-  left: 0; right: 0; height: 3px;
+.neon-perimetro::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 18px;
+  padding: 2px;
+  background: conic-gradient(
+    from var(--angulo-neon, 0deg),
+    transparent 0%,
+    var(--led-roxo) 8%,
+    var(--led-magenta) 16%,
+    var(--led-roxo-forte) 22%,
+    transparent 34%,
+    transparent 100%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: correr-neon 6s linear infinite;
+  filter: drop-shadow(0 0 6px rgba(192, 132, 252, 0.8)) drop-shadow(0 0 14px rgba(168, 85, 247, 0.5));
 }
-.led-esquerda, .led-direita {
-  top: 0; bottom: 0; width: 3px;
-  background: linear-gradient(180deg, transparent, var(--led-roxo), var(--led-magenta), var(--led-roxo), transparent);
-}
-.led-topo { top: 0; box-shadow: 0 0 16px 2px rgba(168, 85, 247, 0.5); }
-.led-baixo { bottom: 0; box-shadow: 0 0 16px 2px rgba(168, 85, 247, 0.5); animation-delay: 1.3s; }
-.led-esquerda { left: 0; box-shadow: 0 0 16px 2px rgba(168, 85, 247, 0.5); animation-delay: 0.6s; }
-.led-direita { right: 0; box-shadow: 0 0 16px 2px rgba(168, 85, 247, 0.5); animation-delay: 2s; }
 
-@keyframes pulsar-led {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 0.85; }
+@property --angulo-neon {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes correr-neon {
+  from { --angulo-neon: 0deg; }
+  to { --angulo-neon: 360deg; }
 }
 
 .fundo-numeros {
