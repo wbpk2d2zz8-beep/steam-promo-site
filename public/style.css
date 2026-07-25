@@ -209,6 +209,97 @@ body {
   .painel-filtros { grid-template-columns: 1fr; }
 }
 
+/* ── Destaques — esteira rolando sozinha, devagar, pra esquerda ──────────
+   Técnica de "marquee infinito": o conteúdo é duplicado (ver JS) e a
+   animação percorre exatamente metade da largura total, em loop linear —
+   assim não existe salto perceptível entre o fim e o recomeço.
+------------------------------------------------------------------------- */
+.secao-destaques {
+  margin: 2rem 0 0;
+}
+.destaques-titulo {
+  font-family: var(--fonte-display);
+  font-size: 1.05rem;
+  color: var(--led-roxo-forte);
+  margin: 0 0 0.9rem;
+  letter-spacing: 0.01em;
+}
+.destaques-esteira-wrap {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
+}
+.destaques-esteira {
+  display: flex;
+  gap: 1rem;
+  width: max-content;
+  animation: rolar-esteira 45s linear infinite;
+}
+.destaques-esteira:hover {
+  animation-play-state: paused;
+}
+@keyframes rolar-esteira {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.destaque-card {
+  position: relative;
+  flex: 0 0 auto;
+  width: 220px;
+  border-radius: 10px;
+  overflow: hidden;
+  text-decoration: none;
+  display: block;
+  border: 1px solid var(--carvao-borda);
+  background: var(--carvao);
+  transition: transform 0.15s, border-color 0.15s;
+}
+.destaque-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--led-roxo-forte);
+}
+.destaque-card img {
+  width: 100%;
+  aspect-ratio: 460 / 215;
+  object-fit: cover;
+  display: block;
+}
+.destaque-nota {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: rgba(7, 6, 10, 0.85);
+  border: 1px solid var(--ouro);
+  color: var(--ouro);
+  font-family: var(--fonte-mono);
+  font-weight: 700;
+  font-size: 0.72rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 6px;
+}
+.destaque-desconto {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  background: var(--coral);
+  color: #1a0d0a;
+  font-family: var(--fonte-mono);
+  font-weight: 700;
+  font-size: 0.72rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 6px;
+}
+.destaque-legenda {
+  padding: 0.55rem 0.7rem 0.7rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--marfim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .filtro-campo label {
   display: block;
   font-size: 0.78rem;

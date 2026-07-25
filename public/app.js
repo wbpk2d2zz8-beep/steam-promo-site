@@ -15,6 +15,7 @@ const areaErro = document.getElementById("area-erro");
 const erroDetalhe = document.getElementById("erro-detalhe");
 const rodapeItad = document.getElementById("rodape-itad");
 const infoAtualizacao = document.getElementById("info-atualizacao");
+const destaquesEsteira = document.getElementById("destaques-esteira");
 
 // ── Sliders refletindo valor ao vivo ────────────────────────────────────────
 inputDesconto.addEventListener("input", () => {
@@ -124,6 +125,51 @@ function criarCardJogo(jogo) {
   return a;
 }
 
+// ── Esteira de destaques — melhores notas, independente do % de desconto ────
+// Roda sozinha via CSS (animação de translateX); aqui só populamos o conteúdo,
+// duplicado uma vez, pra o loop infinito não ter salto perceptível.
+function criarCardDestaque(jogo) {
+  const a = document.createElement("a");
+  a.className = "destaque-card";
+  a.href = jogo.url;
+  a.target = "_blank";
+  a.rel = "noopener noreferrer";
+  a.innerHTML = `
+    <img src="${jogo.imagem}" alt="${escaparHtml(jogo.nome)}" loading="lazy" />
+    <span class="destaque-desconto">-${jogo.desconto}%</span>
+    <span class="destaque-nota">★ ${jogo.avaliacaoPercentual}%</span>
+    <div class="destaque-legenda">${escaparHtml(jogo.nome)}</div>
+  `;
+  return a;
+}
+
+let destaquesCarregados = false;
+
+async function carregarDestaques() {
+  if (!destaquesEsteira || destaquesCarregados) return;
+  try {
+    // Cache completo, sem os filtros do usuário — exige só ALGUM desconto (>=1%).
+    const params = new URLSearchParams({ desconto: "1", nota: "0", excluirIndie: "false" });
+    const resp = await fetch(`/api/promocoes?${params}`);
+    const data = await resp.json();
+    if (!data.ok || !data.jogos.length) return;
+
+    // Melhores notas primeiro (a API já ordena assim), pega um top 12
+    const destaques = data.jogos.slice(0, 12);
+    if (!destaques.length) return;
+
+    destaquesEsteira.innerHTML = "";
+    // Duplica a lista uma vez — a animação percorre exatamente 50% da largura,
+    // então a cópia garante que o loop feche sem pulo visível.
+    [...destaques, ...destaques].forEach((jogo) => {
+      destaquesEsteira.appendChild(criarCardDestaque(jogo));
+    });
+    destaquesCarregados = true;
+  } catch {
+    // Falha silenciosa — a esteira é decorativa, não deve quebrar o resto da página
+  }
+}
+
 // ── Carrega e filtra o cache já pronto (não dispara busca nova na Steam) ────
 // Os parâmetros vão na URL, mas o servidor só filtra em memória — instantâneo.
 let intervaloAcompanhamento = null;
@@ -166,6 +212,7 @@ async function carregarVitrine(silencioso = false) {
       if (!intervaloAcompanhamento) {
         intervaloAcompanhamento = setInterval(() => carregarVitrine(true), 8000);
       }
+      carregarDestaques(); // tenta popular a esteira assim que já houver jogos suficientes no cache
     } else {
       // Terminou — não precisa mais ficar consultando sozinho
       if (intervaloAcompanhamento) {
@@ -179,6 +226,7 @@ async function carregarVitrine(silencioso = false) {
       } else {
         infoAtualizacao.textContent = "Aguardando a primeira busca começar...";
       }
+      carregarDestaques();
     }
 
     if (!data.jogos.length) {
