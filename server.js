@@ -5,10 +5,22 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ── Configurações (mesmas do bot Discord) ────────────────────────────────────
-const DESCONTO_MINIMO_PADRAO = parseInt(process.env.DESCONTO_MINIMO || "50", 10);
-const NOTA_MINIMA_PADRAO = parseInt(process.env.NOTA_MINIMA || "70", 10);
+// O cache busca com critérios BEM ABERTOS (guarda praticamente tudo em promoção).
+// Os filtros do usuário (sliders no site) filtram esse resultado já em memória,
+// sem nunca gerar uma nova chamada à Steam — é isso que evita o bloqueio.
+const DESCONTO_MINIMO_CACHE = 10;   // guarda a partir de -10% (bem aberto)
+const NOTA_MINIMA_CACHE = 0;        // guarda mesmo jogos com nota baixa
+const DESCONTO_MINIMO_PADRAO = parseInt(process.env.DESCONTO_MINIMO || "50", 10); // padrão exibido no site
+const NOTA_MINIMA_PADRAO = parseInt(process.env.NOTA_MINIMA || "70", 10);         // padrão exibido no site
 const ITAD_API_KEY = process.env.ITAD_API_KEY || "";
 const HORAS_ENTRE_ATUALIZACOES = parseFloat(process.env.HORAS_ENTRE_ATUALIZACOES || "4");
+
+// Ritmo "gotejado": processa um jogo de cada vez, com pausa entre eles — nada de rajada.
+// Padrão: 6000ms (6s) entre jogos ≈ 10 jogos/minuto, como sugerido.
+const MS_ENTRE_JOGOS = parseInt(process.env.MS_ENTRE_JOGOS || "6000", 10);
+// Limite de jogos processados por atualização, pra a busca inteira não demorar horas.
+// Com 60 jogos e 6s entre cada um, uma atualização completa leva ~6 minutos.
+const MAX_JOGOS_POR_ATUALIZACAO = parseInt(process.env.MAX_JOGOS_POR_ATUALIZACAO || "60", 10);
 
 const STEAM_SEARCH_URL = "https://store.steampowered.com/search/results/";
 const STEAM_APPDETAILS_URL = "https://store.steampowered.com/api/appdetails";
@@ -183,21 +195,16 @@ async function processarJogo(item, descontoMinimo, notaMinima, excluirIndie) {
   };
 }
 
-async function processarComLimite(itens, limite, descontoMinimo, notaMinima, excluirIndie) {
+async function processarSequencial(itens, msEntreJogos, descontoMinimo, notaMinima, excluirIndie) {
   const resultados = [];
-  let indice = 0;
-
-  async function worker() {
-    while (indice < itens.length) {
-      const meuIndice = indice++;
-      const r = await processarJogo(itens[meuIndice], descontoMinimo, notaMinima, excluirIndie);
-      if (r) resultados.push(r);
-      await new Promise((res) => setTimeout(res, 150)); // espaçamento pra não sobrecarregar a Steam
+  for (let i = 0; i < itens.length; i++) {
+    const r = await processarJogo(itens[i], descontoMinimo, notaMinima, excluirIndie);
+    if (r) resultados.push(r);
+    // Espera entre cada jogo (não entre chamadas dentro do mesmo jogo) — processo "gotejado"
+    if (i < itens.length - 1) {
+      await new Promise((res) => setTimeout(res, msEntreJogos));
     }
   }
-
-  const workers = Array.from({ length: limite }, () => worker());
-  await Promise.all(workers);
   return resultados;
 }
 
@@ -206,19 +213,22 @@ async function buscarPromocoes({
   notaMinima = NOTA_MINIMA_PADRAO,
   excluirIndie = true,
   maxPaginas = 4,
+  msEntreJogos = MS_ENTRE_JOGOS,
 } = {}) {
   let brutos = [];
   for (let pagina = 0; pagina < maxPaginas; pagina++) {
     const items = await buscarPaginaBusca(pagina * 50, 50);
     if (!items.length) break;
     brutos = brutos.concat(items);
-    if (brutos.length >= 200) break;
-    await new Promise((r) => setTimeout(r, 500));
+    if (brutos.length >= MAX_JOGOS_POR_ATUALIZACAO) break;
+    await new Promise((r) => setTimeout(r, 1500)); // espera entre páginas de busca também
   }
 
   if (!brutos.length) return [];
 
-  const processados = await processarComLimite(brutos, 6, descontoMinimo, notaMinima, excluirIndie);
+  brutos = brutos.slice(0, MAX_JOGOS_POR_ATUALIZACAO);
+
+  const processados = await processarSequencial(brutos, msEntreJogos, descontoMinimo, notaMinima, excluirIndie);
 
   const vistos = new Set();
   const final = [];
@@ -235,8 +245,10 @@ async function buscarPromocoes({
 
 // ── Cache — a busca roda sozinha em segundo plano, o site nunca busca "na hora" ──
 // Isso evita martelar a API da Steam a cada visita (e o bloqueio que isso causava).
+// O cache guarda TUDO (critérios abertos); os filtros do usuário atuam em cima
+// desse conjunto já pronto, na memória — nenhum filtro gera chamada nova à Steam.
 let cache = {
-  jogos: [],
+  jogos: [], // todos os jogos, sem filtro de indie aplicado (guardamos o campo "generos" pra filtrar depois)
   atualizadoEm: null,
   atualizando: false,
   erro: null,
@@ -248,14 +260,14 @@ async function atualizarCache() {
   console.log("[CACHE] Iniciando atualização das promoções...");
   try {
     const jogos = await buscarPromocoes({
-      descontoMinimo: DESCONTO_MINIMO_PADRAO,
-      notaMinima: NOTA_MINIMA_PADRAO,
-      excluirIndie: true,
+      descontoMinimo: DESCONTO_MINIMO_CACHE,
+      notaMinima: NOTA_MINIMA_CACHE,
+      excluirIndie: false, // guarda indies também — o filtro de indie roda em memória na hora da visita
     });
     cache.jogos = jogos;
     cache.atualizadoEm = new Date().toISOString();
     cache.erro = null;
-    console.log(`[CACHE] Atualizado com sucesso: ${jogos.length} jogos encontrados.`);
+    console.log(`[CACHE] Atualizado com sucesso: ${jogos.length} jogos guardados no total.`);
   } catch (erro) {
     cache.erro = String(erro);
     console.error("[CACHE] Falha ao atualizar:", erro);
@@ -264,17 +276,33 @@ async function atualizarCache() {
   }
 }
 
+function filtrarCache(descontoMinimo, notaMinima, excluirIndie) {
+  return cache.jogos.filter((jogo) => {
+    if (jogo.desconto < descontoMinimo) return false;
+    if (jogo.avaliacaoPercentual < notaMinima) return false;
+    if (excluirIndie && (jogo.generos || []).includes(GENRE_INDIE)) return false;
+    return true;
+  });
+}
+
 // ── Servidor Express ───────────────────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/api/promocoes", (req, res) => {
+  const desconto = parseInt(req.query.desconto, 10) || DESCONTO_MINIMO_PADRAO;
+  const nota = parseInt(req.query.nota, 10) || NOTA_MINIMA_PADRAO;
+  const excluirIndie = req.query.excluirIndie !== "false";
+
+  const jogosFiltrados = filtrarCache(desconto, nota, excluirIndie);
+
   res.json({
     ok: true,
-    total: cache.jogos.length,
+    total: jogosFiltrados.length,
+    totalNoCache: cache.jogos.length,
     itadAtivo: Boolean(ITAD_API_KEY),
     atualizadoEm: cache.atualizadoEm,
     erro: cache.erro,
-    jogos: cache.jogos,
+    jogos: jogosFiltrados,
   });
 });
 
@@ -350,9 +378,11 @@ app.get("/api/debug", async (req, res) => {
 });
 
 app.listen(PORT, () => {
+  const estimativaMin = Math.ceil((MAX_JOGOS_POR_ATUALIZACAO * MS_ENTRE_JOGOS) / 60000);
   console.log(`✅ Servidor rodando em http://localhost:${PORT}`);
   console.log(`   ITAD configurado: ${ITAD_API_KEY ? "sim" : "não"}`);
   console.log(`   Atualizando promoções a cada ${HORAS_ENTRE_ATUALIZACOES}h`);
+  console.log(`   Ritmo: 1 jogo a cada ${MS_ENTRE_JOGOS / 1000}s (~${estimativaMin} min por atualização completa)`);
 
   // Primeira busca ao ligar o servidor (não bloqueia o listen, roda em paralelo)
   atualizarCache();
