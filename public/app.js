@@ -165,9 +165,53 @@ async function carregarDestaques() {
       destaquesEsteira.appendChild(criarCardDestaque(jogo));
     });
     destaquesCarregados = true;
+    configurarInteracaoEsteira();
   } catch {
     // Falha silenciosa — a esteira é decorativa, não deve quebrar o resto da página
   }
+}
+
+// Permite arrastar/scrollar a esteira manualmente: pausa a animação CSS
+// enquanto o usuário interage (mouse, toque ou scroll) e retoma sozinha
+// depois de um tempo parado — sem os dois métodos brigarem pela posição.
+function configurarInteracaoEsteira() {
+  const wrap = destaquesEsteira.closest(".destaques-esteira-wrap");
+  if (!wrap) return;
+
+  let timeoutRetomada = null;
+
+  function pausar() {
+    destaquesEsteira.classList.add("pausado");
+    if (timeoutRetomada) clearTimeout(timeoutRetomada);
+  }
+
+  function agendarRetomada() {
+    if (timeoutRetomada) clearTimeout(timeoutRetomada);
+    timeoutRetomada = setTimeout(() => {
+      destaquesEsteira.classList.remove("pausado");
+    }, 2500);
+  }
+
+  wrap.addEventListener("mouseenter", pausar);
+  wrap.addEventListener("mouseleave", agendarRetomada);
+  wrap.addEventListener("touchstart", pausar, { passive: true });
+  wrap.addEventListener("touchend", agendarRetomada);
+  wrap.addEventListener("scroll", () => {
+    pausar();
+    agendarRetomada();
+  });
+
+  // Se a aba voltar a ficar visível depois de tempo em segundo plano,
+  // alguns navegadores deixam a animação "presa" — isso força um reset limpo.
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+      destaquesEsteira.classList.add("pausado");
+      // Força o navegador a recalcular o estilo antes de tirar a pausa,
+      // evitando o "salto" que aconteceria retomando direto no meio do cálculo.
+      void destaquesEsteira.offsetWidth;
+      requestAnimationFrame(() => destaquesEsteira.classList.remove("pausado"));
+    }
+  });
 }
 
 // ── Carrega e filtra o cache já pronto (não dispara busca nova na Steam) ────

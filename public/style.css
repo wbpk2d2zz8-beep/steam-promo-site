@@ -225,9 +225,21 @@ body {
   letter-spacing: 0.01em;
 }
 .destaques-esteira-wrap {
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
   mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
+  /* Scrollbar discreta — o usuário pode arrastar manualmente a qualquer momento */
+  scrollbar-width: thin;
+  scrollbar-color: var(--led-roxo) transparent;
+  -webkit-overflow-scrolling: touch;
+}
+.destaques-esteira-wrap::-webkit-scrollbar {
+  height: 6px;
+}
+.destaques-esteira-wrap::-webkit-scrollbar-thumb {
+  background: var(--led-roxo);
+  border-radius: 999px;
 }
 .destaques-esteira {
   display: flex;
@@ -235,7 +247,10 @@ body {
   width: max-content;
   animation: rolar-esteira 45s linear infinite;
 }
-.destaques-esteira:hover {
+/* A classe .pausado é controlada via JS — cobre hover, toque e scroll manual,
+   de forma mais confiável que :hover sozinho (que não existe em touch e pode
+   deixar a animação "presa" se o navegador pausar por estar em segundo plano). */
+.destaques-esteira.pausado {
   animation-play-state: paused;
 }
 @keyframes rolar-esteira {
