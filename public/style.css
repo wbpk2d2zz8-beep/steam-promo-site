@@ -237,6 +237,9 @@ body {
 .destaques-esteira.animar {
   animation: rolar-esteira 45s linear infinite;
 }
+.destaques-esteira-wrap:hover .destaques-esteira.animar {
+  animation-play-state: paused;
+}
 @keyframes rolar-esteira {
   from { transform: translateX(0); }
   to { transform: translateX(-50%); }
