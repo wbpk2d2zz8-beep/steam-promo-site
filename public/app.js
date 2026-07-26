@@ -146,13 +146,24 @@ function criarCardDestaque(jogo) {
 let destaquesCarregados = false;
 
 async function carregarDestaques() {
-  if (!destaquesEsteira || destaquesCarregados) return;
+  if (!destaquesEsteira) {
+    console.warn("[destaques] elemento #destaques-esteira não encontrado no HTML");
+    return;
+  }
+  if (destaquesCarregados) {
+    console.log("[destaques] já carregado antes, pulando");
+    return;
+  }
   try {
     // Cache completo, sem os filtros do usuário — exige só ALGUM desconto (>=1%).
     const params = new URLSearchParams({ desconto: "1", nota: "0", excluirIndie: "false" });
     const resp = await fetch(`/api/promocoes?${params}`);
     const data = await resp.json();
-    if (!data.ok || !data.jogos.length) return;
+    console.log("[destaques] resposta da API:", data.ok, "jogos:", data.jogos?.length);
+    if (!data.ok || !data.jogos.length) {
+      console.warn("[destaques] sem jogos disponíveis ainda");
+      return;
+    }
 
     // Melhores notas primeiro (a API já ordena assim), pega um top 12
     const destaques = data.jogos.slice(0, 12);
@@ -165,8 +176,10 @@ async function carregarDestaques() {
       destaquesEsteira.appendChild(criarCardDestaque(jogo));
     });
     destaquesCarregados = true;
-  } catch {
-    // Falha silenciosa — a esteira é decorativa, não deve quebrar o resto da página
+    console.log("[destaques] carregado com sucesso:", destaques.length, "jogos, elemento tem", destaquesEsteira.children.length, "filhos");
+    console.log("[destaques] largura do elemento:", destaquesEsteira.scrollWidth, "px");
+  } catch (erro) {
+    console.error("[destaques] erro ao carregar:", erro);
   }
 }
 
