@@ -233,6 +233,8 @@ body {
   display: flex;
   gap: 1rem;
   width: max-content;
+}
+.destaques-esteira.animar {
   animation: rolar-esteira 45s linear infinite;
 }
 @keyframes rolar-esteira {

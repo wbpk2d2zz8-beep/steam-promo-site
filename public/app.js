@@ -178,6 +178,17 @@ async function carregarDestaques() {
     destaquesCarregados = true;
     console.log("[destaques] carregado com sucesso:", destaques.length, "jogos, elemento tem", destaquesEsteira.children.length, "filhos");
     console.log("[destaques] largura do elemento:", destaquesEsteira.scrollWidth, "px");
+
+    // A animação só é ligada DEPOIS que o navegador já calculou a largura real
+    // do conteúdo (por isso o duplo requestAnimationFrame) — se a classe já
+    // existisse no elemento vazio desde o início, a animação poderia "nascer"
+    // presa num ciclo calculado sobre largura zero e nunca se mover de verdade.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        destaquesEsteira.classList.add("animar");
+        console.log("[destaques] animação ativada");
+      });
+    });
   } catch (erro) {
     console.error("[destaques] erro ao carregar:", erro);
   }
