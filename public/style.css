@@ -209,10 +209,11 @@ body {
   .painel-filtros { grid-template-columns: 1fr; }
 }
 
-/* ── Destaques — esteira rolando sozinha, devagar, pra esquerda ──────────
-   Técnica de "marquee infinito": o conteúdo é duplicado (ver JS) e a
-   animação percorre exatamente metade da largura total, em loop linear —
-   assim não existe salto perceptível entre o fim e o recomeço.
+/* ── Destaques — carrossel de slides com bolinhas de navegação ────────────
+   Diferente da versão anterior (esteira em loop contínuo via @keyframes),
+   aqui a troca de slide é feita via JS mudando `transform: translateX` uma
+   vez por vez — não depende de animação CSS contínua, então funciona mesmo
+   com "reduzir movimento" ativado no sistema operacional do usuário.
 ------------------------------------------------------------------------- */
 .secao-destaques {
   margin: 2rem 0 0;
@@ -224,31 +225,47 @@ body {
   margin: 0 0 0.9rem;
   letter-spacing: 0.01em;
 }
-.destaques-esteira-wrap {
+.carrossel-wrap {
   overflow: hidden;
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
-  mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
+  border-radius: 12px;
 }
-.destaques-esteira {
+.carrossel-trilho {
   display: flex;
+  transition: transform 0.5s ease;
+}
+.carrossel-slide {
+  flex: 0 0 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 1rem;
-  width: max-content;
 }
-.destaques-esteira.animar {
-  animation: rolar-esteira 45s linear infinite;
+
+.carrossel-bolinhas {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
 }
-.destaques-esteira-wrap:hover .destaques-esteira.animar {
-  animation-play-state: paused;
+.carrossel-bolinha {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: none;
+  background: var(--carvao-borda);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.2s, transform 0.2s;
 }
-@keyframes rolar-esteira {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
+.carrossel-bolinha:hover {
+  background: var(--led-roxo);
+}
+.carrossel-bolinha.ativa {
+  background: var(--led-roxo-forte);
+  transform: scale(1.3);
 }
 
 .destaque-card {
   position: relative;
-  flex: 0 0 auto;
-  width: 220px;
   border-radius: 10px;
   overflow: hidden;
   text-decoration: none;

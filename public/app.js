@@ -15,7 +15,8 @@ const areaErro = document.getElementById("area-erro");
 const erroDetalhe = document.getElementById("erro-detalhe");
 const rodapeItad = document.getElementById("rodape-itad");
 const infoAtualizacao = document.getElementById("info-atualizacao");
-const destaquesEsteira = document.getElementById("destaques-esteira");
+const carrosselTrilho = document.getElementById("carrossel-trilho");
+const carrosselBolinhas = document.getElementById("carrossel-bolinhas");
 
 // ── Sliders refletindo valor ao vivo ────────────────────────────────────────
 inputDesconto.addEventListener("input", () => {
@@ -125,9 +126,19 @@ function criarCardJogo(jogo) {
   return a;
 }
 
-// ── Esteira de destaques — melhores notas, independente do % de desconto ────
-// Roda sozinha via CSS (animação de translateX); aqui só populamos o conteúdo,
-// duplicado uma vez, pra o loop infinito não ter salto perceptível.
+// ── Carrossel de destaques — melhores notas, independente do % de desconto ──
+// Ao contrário da versão anterior (animação CSS contínua), aqui a troca de
+// slide é feita mudando `transform: translateX` via JS a cada alguns segundos.
+// Isso funciona mesmo com "reduzir movimento" ativado no sistema operacional,
+// já que não depende de @keyframes/animation do CSS.
+const JOGOS_POR_SLIDE = 4;
+const INTERVALO_SLIDE_MS = 4000;
+
+let carrosselSlides = 0;
+let carrosselAtual = 0;
+let carrosselIntervalo = null;
+let destaquesCarregados = false;
+
 function criarCardDestaque(jogo) {
   const a = document.createElement("a");
   a.className = "destaque-card";
@@ -143,52 +154,72 @@ function criarCardDestaque(jogo) {
   return a;
 }
 
-let destaquesCarregados = false;
+function irParaSlide(indice) {
+  if (!carrosselTrilho || carrosselSlides === 0) return;
+  carrosselAtual = ((indice % carrosselSlides) + carrosselSlides) % carrosselSlides;
+  carrosselTrilho.style.transform = `translateX(-${carrosselAtual * 100}%)`;
+
+  // Atualiza qual bolinha está marcada como ativa
+  const bolinhas = carrosselBolinhas.querySelectorAll(".carrossel-bolinha");
+  bolinhas.forEach((b, i) => b.classList.toggle("ativa", i === carrosselAtual));
+}
+
+function reiniciarAutoAvanco() {
+  if (carrosselIntervalo) clearInterval(carrosselIntervalo);
+  if (carrosselSlides <= 1) return; // nada a avançar com 1 slide só
+  carrosselIntervalo = setInterval(() => {
+    irParaSlide(carrosselAtual + 1);
+  }, INTERVALO_SLIDE_MS);
+}
 
 async function carregarDestaques() {
-  if (!destaquesEsteira) {
-    console.warn("[destaques] elemento #destaques-esteira não encontrado no HTML");
-    return;
-  }
-  if (destaquesCarregados) {
-    console.log("[destaques] já carregado antes, pulando");
-    return;
-  }
+  if (!carrosselTrilho || destaquesCarregados) return;
   try {
     // Cache completo, sem os filtros do usuário — exige só ALGUM desconto (>=1%).
     const params = new URLSearchParams({ desconto: "1", nota: "0", excluirIndie: "false" });
     const resp = await fetch(`/api/promocoes?${params}`);
     const data = await resp.json();
-    console.log("[destaques] resposta da API:", data.ok, "jogos:", data.jogos?.length);
-    if (!data.ok || !data.jogos.length) {
-      console.warn("[destaques] sem jogos disponíveis ainda");
-      return;
-    }
+    if (!data.ok || !data.jogos.length) return;
 
     // Melhores notas primeiro (a API já ordena assim), pega um top 12
     const destaques = data.jogos.slice(0, 12);
     if (!destaques.length) return;
 
-    destaquesEsteira.innerHTML = "";
-    // Duplica a lista uma vez — a animação percorre exatamente 50% da largura,
-    // então a cópia garante que o loop feche sem pulo visível.
-    [...destaques, ...destaques].forEach((jogo) => {
-      destaquesEsteira.appendChild(criarCardDestaque(jogo));
-    });
-    destaquesCarregados = true;
-    console.log("[destaques] carregado com sucesso:", destaques.length, "jogos, elemento tem", destaquesEsteira.children.length, "filhos");
-    console.log("[destaques] largura do elemento:", destaquesEsteira.scrollWidth, "px");
+    // Monta os slides — cada um com até JOGOS_POR_SLIDE cards
+    carrosselTrilho.innerHTML = "";
+    carrosselBolinhas.innerHTML = "";
+    carrosselSlides = Math.ceil(destaques.length / JOGOS_POR_SLIDE);
 
-    // A animação só é ligada DEPOIS que o navegador já calculou a largura real
-    // do conteúdo (por isso o duplo requestAnimationFrame) — se a classe já
-    // existisse no elemento vazio desde o início, a animação poderia "nascer"
-    // presa num ciclo calculado sobre largura zero e nunca se mover de verdade.
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        destaquesEsteira.classList.add("animar");
-        console.log("[destaques] animação ativada");
+    for (let i = 0; i < carrosselSlides; i++) {
+      const slide = document.createElement("div");
+      slide.className = "carrossel-slide";
+      const grupo = destaques.slice(i * JOGOS_POR_SLIDE, i * JOGOS_POR_SLIDE + JOGOS_POR_SLIDE);
+      grupo.forEach((jogo) => slide.appendChild(criarCardDestaque(jogo)));
+      carrosselTrilho.appendChild(slide);
+
+      const bolinha = document.createElement("button");
+      bolinha.className = "carrossel-bolinha";
+      bolinha.type = "button";
+      bolinha.setAttribute("aria-label", `Ir para o grupo ${i + 1}`);
+      bolinha.addEventListener("click", () => {
+        irParaSlide(i);
+        reiniciarAutoAvanco(); // clique manual reinicia a contagem do avanço automático
       });
-    });
+      carrosselBolinhas.appendChild(bolinha);
+    }
+
+    destaquesCarregados = true;
+    irParaSlide(0);
+    reiniciarAutoAvanco();
+
+    // Pausa o avanço automático enquanto o mouse estiver sobre o carrossel
+    const wrap = carrosselTrilho.closest(".carrossel-wrap");
+    if (wrap) {
+      wrap.addEventListener("mouseenter", () => {
+        if (carrosselIntervalo) clearInterval(carrosselIntervalo);
+      });
+      wrap.addEventListener("mouseleave", reiniciarAutoAvanco);
+    }
   } catch (erro) {
     console.error("[destaques] erro ao carregar:", erro);
   }
