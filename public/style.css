@@ -229,17 +229,18 @@ body {
   overflow-y: hidden;
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
   mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
-  /* Scrollbar discreta — o usuário pode arrastar manualmente a qualquer momento */
-  scrollbar-width: thin;
-  scrollbar-color: var(--led-roxo) transparent;
   -webkit-overflow-scrolling: touch;
+  cursor: grab;
+  /* Barra de rolagem escondida visualmente — o scroll continua funcionando por trás,
+     só não aparece a trilha/thumb. */
+  scrollbar-width: none;      /* Firefox */
+  -ms-overflow-style: none;   /* versões antigas do Edge/IE */
 }
 .destaques-esteira-wrap::-webkit-scrollbar {
-  height: 6px;
+  display: none;              /* Chrome, Safari, navegadores baseados em Chromium */
 }
-.destaques-esteira-wrap::-webkit-scrollbar-thumb {
-  background: var(--led-roxo);
-  border-radius: 999px;
+.destaques-esteira-wrap.arrastando {
+  cursor: grabbing;
 }
 .destaques-esteira {
   display: flex;
