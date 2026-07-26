@@ -165,98 +165,9 @@ async function carregarDestaques() {
       destaquesEsteira.appendChild(criarCardDestaque(jogo));
     });
     destaquesCarregados = true;
-    configurarInteracaoEsteira();
   } catch {
     // Falha silenciosa — a esteira é decorativa, não deve quebrar o resto da página
   }
-}
-
-// Permite arrastar a esteira manualmente com o ponteiro do mouse (ou o dedo).
-// A esteira sozinha SEMPRE continua se movendo, exceto durante o arraste em si —
-// passar o mouse por cima sem clicar não pausa nada.
-function configurarInteracaoEsteira() {
-  const wrap = destaquesEsteira.closest(".destaques-esteira-wrap");
-  if (!wrap) return;
-
-  let arrastando = false;
-  let posInicialX = 0;
-  let scrollInicial = 0;
-  let distanciaArrastada = 0;
-  let timeoutRetomada = null;
-
-  function pausarAnimacao() {
-    destaquesEsteira.classList.add("pausado");
-    if (timeoutRetomada) clearTimeout(timeoutRetomada);
-  }
-
-  function retomarAnimacaoLogo() {
-    if (timeoutRetomada) clearTimeout(timeoutRetomada);
-    timeoutRetomada = setTimeout(() => {
-      destaquesEsteira.classList.remove("pausado");
-    }, 600); // pausa breve só o suficiente pra soltar o clique sem "puxão"
-  }
-
-  // ── Arraste com mouse ──
-  wrap.addEventListener("mousedown", (e) => {
-    arrastando = true;
-    distanciaArrastada = 0;
-    wrap.classList.add("arrastando");
-    posInicialX = e.pageX;
-    scrollInicial = wrap.scrollLeft;
-    pausarAnimacao();
-  });
-
-  window.addEventListener("mousemove", (e) => {
-    if (!arrastando) return;
-    e.preventDefault();
-    const delta = e.pageX - posInicialX;
-    distanciaArrastada = Math.abs(delta);
-    wrap.scrollLeft = scrollInicial - delta;
-  });
-
-  window.addEventListener("mouseup", () => {
-    if (!arrastando) return;
-    arrastando = false;
-    wrap.classList.remove("arrastando");
-    retomarAnimacaoLogo();
-  });
-
-  // Se o mouse se moveu mais que alguns pixels, era arraste — cancela o clique
-  // no link do card pra abrir o jogo não acontecer sem querer.
-  wrap.addEventListener(
-    "click",
-    (e) => {
-      if (distanciaArrastada > 5) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    },
-    true
-  );
-
-  // ── Toque (mobile) — usa o scroll nativo, só precisamos pausar/retomar ──
-  wrap.addEventListener("touchstart", pausarAnimacao, { passive: true });
-  wrap.addEventListener("touchend", retomarAnimacaoLogo);
-
-  // ── Scroll manual (roda do mouse, trackpad) ──
-  wrap.addEventListener("scroll", () => {
-    if (!arrastando) {
-      pausarAnimacao();
-      retomarAnimacaoLogo();
-    }
-  });
-
-  // Se a aba voltar a ficar visível depois de tempo em segundo plano,
-  // alguns navegadores deixam a animação "presa" — isso força um reset limpo.
-  document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) {
-      destaquesEsteira.classList.add("pausado");
-      // Força o navegador a recalcular o estilo antes de tirar a pausa,
-      // evitando o "salto" que aconteceria retomando direto no meio do cálculo.
-      void destaquesEsteira.offsetWidth;
-      requestAnimationFrame(() => destaquesEsteira.classList.remove("pausado"));
-    }
-  });
 }
 
 // ── Carrega e filtra o cache já pronto (não dispara busca nova na Steam) ────
