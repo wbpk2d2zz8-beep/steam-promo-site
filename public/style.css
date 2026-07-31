@@ -460,10 +460,10 @@ input[type="range"]::-moz-range-thumb {
 .resultado-cabecalho {
   margin: 2.5rem 0 1.5rem;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 1rem;
 }
 #resultado-titulo {
   font-family: var(--fonte-display);
@@ -474,8 +474,46 @@ input[type="range"]::-moz-range-thumb {
 .resultado-sub {
   color: var(--cinza);
   font-size: 0.88rem;
-  margin: 0;
+  margin: 0.2rem 0 0;
 }
+
+.ordenar-campo {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.ordenar-campo label {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cinza);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ordenar-campo select {
+  background: var(--carvao);
+  border: 1px solid var(--carvao-borda);
+  color: var(--marfim);
+  font-family: var(--fonte-corpo);
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 0.5rem 0.8rem;
+  border-radius: 8px;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath fill='%23a855f7' d='M6 8 0 0h12z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  padding-right: 2.2rem;
+  transition: border-color 0.15s;
+}
+.ordenar-campo select:hover,
+.ordenar-campo select:focus {
+  border-color: var(--led-roxo-forte);
+  outline: none;
+}
+
 
 .grade-jogos {
   display: grid;

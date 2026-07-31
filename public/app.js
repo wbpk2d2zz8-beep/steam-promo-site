@@ -17,6 +17,7 @@ const rodapeItad = document.getElementById("rodape-itad");
 const infoAtualizacao = document.getElementById("info-atualizacao");
 const carrosselTrilho = document.getElementById("carrossel-trilho");
 const carrosselBolinhas = document.getElementById("carrossel-bolinhas");
+const inputOrdenar = document.getElementById("input-ordenar");
 
 // ── Sliders refletindo valor ao vivo ────────────────────────────────────────
 inputDesconto.addEventListener("input", () => {
@@ -230,11 +231,55 @@ async function carregarDestaques() {
 let intervaloAcompanhamento = null;
 
 let primeiraCarga = true;
+let ultimosJogosCarregados = []; // guarda a última lista recebida do servidor, pra reordenar sem novo fetch
+let ultimoDescontoUsado = 50;
+let ultimaNotaUsada = 70;
+
+// ── Ordenação — tudo em memória, sobre a lista já carregada. Instantâneo. ──
+function ordenarJogos(jogos, criterio) {
+  const lista = [...jogos]; // nunca muta o array original
+  switch (criterio) {
+    case "nome-az":
+      return lista.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+    case "nome-za":
+      return lista.sort((a, b) => b.nome.localeCompare(a.nome, "pt-BR"));
+    case "preco-crescente":
+      return lista.sort((a, b) => a.precoFinal - b.precoFinal);
+    case "preco-decrescente":
+      return lista.sort((a, b) => b.precoFinal - a.precoFinal);
+    case "desconto-decrescente":
+      return lista.sort((a, b) => b.desconto - a.desconto);
+    case "desconto-crescente":
+      return lista.sort((a, b) => a.desconto - b.desconto);
+    case "nota-decrescente":
+      return lista.sort((a, b) => b.avaliacaoPercentual - a.avaliacaoPercentual);
+    case "nota-crescente":
+      return lista.sort((a, b) => a.avaliacaoPercentual - b.avaliacaoPercentual);
+    case "relevancia":
+    default:
+      return lista; // já vem ordenado pelo servidor (nota, depois desconto)
+  }
+}
+
+function renderizarJogos(jogos) {
+  gradeJogos.innerHTML = "";
+  jogos.forEach((jogo) => gradeJogos.appendChild(criarCardJogo(jogo)));
+}
+
+function reordenarEExibir() {
+  if (!ultimosJogosCarregados.length) return;
+  const jogosOrdenados = ordenarJogos(ultimosJogosCarregados, inputOrdenar.value);
+  renderizarJogos(jogosOrdenados);
+}
+
+inputOrdenar.addEventListener("change", reordenarEExibir);
 
 async function carregarVitrine(silencioso = false) {
   const desconto = inputDesconto.value;
   const nota = inputNota.value;
   const excluirIndie = inputIndie.checked;
+  ultimoDescontoUsado = desconto;
+  ultimaNotaUsada = nota;
 
   // O spinner só faz sentido na primeiríssima carga, antes de saber se existe algum dado.
   // Trocar os sliders é filtro em memória — instantâneo, não precisa de tela de carregamento.
@@ -285,16 +330,18 @@ async function carregarVitrine(silencioso = false) {
     }
 
     if (!data.jogos.length) {
+      ultimosJogosCarregados = [];
       if (!silencioso || !data.atualizando) areaVazio.hidden = false;
       return;
     }
 
     areaVazio.hidden = true;
     resultadoTitulo.textContent = `${data.total} ${data.total === 1 ? "jogo encontrado" : "jogos encontrados"}`;
-    resultadoSub.textContent = `Ordenados por nota de avaliação, depois por desconto · -${desconto}% ou mais · nota ≥ ${nota}%`;
+    resultadoSub.textContent = `-${desconto}% ou mais · nota ≥ ${nota}%`;
 
-    gradeJogos.innerHTML = "";
-    data.jogos.forEach((jogo) => gradeJogos.appendChild(criarCardJogo(jogo)));
+    ultimosJogosCarregados = data.jogos;
+    const jogosOrdenados = ordenarJogos(ultimosJogosCarregados, inputOrdenar.value);
+    renderizarJogos(jogosOrdenados);
 
     areaResultado.hidden = false;
   } catch (erro) {

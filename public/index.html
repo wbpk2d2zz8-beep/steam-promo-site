@@ -73,8 +73,24 @@
 
   <section id="area-resultado" class="area-resultado" hidden>
     <div class="resultado-cabecalho">
-      <h2 id="resultado-titulo">— jogos encontrados</h2>
-      <p id="resultado-sub" class="resultado-sub"></p>
+      <div>
+        <h2 id="resultado-titulo">— jogos encontrados</h2>
+        <p id="resultado-sub" class="resultado-sub"></p>
+      </div>
+      <div class="ordenar-campo">
+        <label for="input-ordenar">Ordenar por</label>
+        <select id="input-ordenar">
+          <option value="relevancia">Relevância (padrão)</option>
+          <option value="nome-az">Nome (A–Z)</option>
+          <option value="nome-za">Nome (Z–A)</option>
+          <option value="preco-crescente">Preço (menor primeiro)</option>
+          <option value="preco-decrescente">Preço (maior primeiro)</option>
+          <option value="desconto-decrescente">Desconto (maior primeiro)</option>
+          <option value="desconto-crescente">Desconto (menor primeiro)</option>
+          <option value="nota-decrescente">Nota (maior primeiro)</option>
+          <option value="nota-crescente">Nota (menor primeiro)</option>
+        </select>
+      </div>
     </div>
     <div id="grade-jogos" class="grade-jogos"></div>
   </section>
